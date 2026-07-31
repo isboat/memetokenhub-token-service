@@ -1,0 +1,3 @@
+[submodule "docs/mth-docs"]
+	path = docs/mth-docs
+	url = https://github.com/isboat/mth-docs.git
