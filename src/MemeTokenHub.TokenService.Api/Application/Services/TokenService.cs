@@ -9,12 +9,18 @@ public sealed class TokenService : ITokenService
     private readonly ITokenRepository _repository;
     private readonly IClock _clock;
 
+    /// <summary>
+    /// Initializes the token application service with persistence and time abstractions.
+    /// </summary>
     public TokenService(ITokenRepository repository, IClock clock)
     {
         _repository = repository;
         _clock = clock;
     }
 
+    /// <summary>
+    /// Validates and creates a private token draft, returning a conflict for duplicate contracts.
+    /// </summary>
     public async Task<TokenResponse> CreateAsync(CreateTokenRequest request, string creatorId, CancellationToken cancellationToken)
     {
         ValidateUrls(request.LogoUrl, request.BannerUrl, request.WebsiteUrl, request.SocialLinks);
@@ -52,6 +58,9 @@ public sealed class TokenService : ITokenService
         return Map(token);
     }
 
+    /// <summary>
+    /// Gets a token while enforcing draft visibility for the requesting user.
+    /// </summary>
     public async Task<TokenResponse> GetAsync(string tokenId, string? requesterId, CancellationToken cancellationToken)
     {
         TokenProject? token = await _repository.GetByIdAsync(tokenId, includeDrafts: requesterId is not null, cancellationToken);
@@ -63,6 +72,9 @@ public sealed class TokenService : ITokenService
         return Map(token);
     }
 
+    /// <summary>
+    /// Searches public token projections after validating pagination constraints.
+    /// </summary>
     public async Task<PagedResult<TokenResponse>> SearchAsync(TokenQuery query, CancellationToken cancellationToken)
     {
         if (query.Limit is < 1 or > 100 || query.Offset < 0)
@@ -80,6 +92,9 @@ public sealed class TokenService : ITokenService
         };
     }
 
+    /// <summary>
+    /// Updates editable token metadata for an owner or moderator using optimistic concurrency.
+    /// </summary>
     public async Task<TokenResponse> UpdateAsync(string tokenId, UpdateTokenRequest request, string requesterId, bool isModerator, CancellationToken cancellationToken)
     {
         ValidateUrls(request.LogoUrl, request.BannerUrl, request.WebsiteUrl, request.SocialLinks);
@@ -96,6 +111,9 @@ public sealed class TokenService : ITokenService
         return Map(token);
     }
 
+    /// <summary>
+    /// Idempotently publishes an owned token draft using the authoritative server time.
+    /// </summary>
     public async Task<TokenResponse> PublishAsync(string tokenId, string requesterId, bool isModerator, CancellationToken cancellationToken)
     {
         TokenProject token = await GetOwnedTokenAsync(tokenId, requesterId, isModerator, cancellationToken);
@@ -112,9 +130,15 @@ public sealed class TokenService : ITokenService
         return Map(token);
     }
 
+    /// <summary>
+    /// Gets network names and published token counts from the discovery projection.
+    /// </summary>
     public Task<IReadOnlyCollection<NetworkResponse>> GetNetworksAsync(CancellationToken cancellationToken) =>
         _repository.GetNetworksAsync(cancellationToken);
 
+    /// <summary>
+    /// Gets the cached social sentiment projection for a published token.
+    /// </summary>
     public async Task<SentimentResponse> GetSentimentAsync(string tokenId, CancellationToken cancellationToken)
     {
         TokenProject? token = await _repository.GetByIdAsync(tokenId, includeDrafts: false, cancellationToken);
@@ -133,6 +157,9 @@ public sealed class TokenService : ITokenService
         };
     }
 
+    /// <summary>
+    /// Loads a token and verifies that the requester can modify it.
+    /// </summary>
     private async Task<TokenProject> GetOwnedTokenAsync(string tokenId, string requesterId, bool isModerator, CancellationToken cancellationToken)
     {
         TokenProject? token = await _repository.GetByIdAsync(tokenId, includeDrafts: true, cancellationToken);
@@ -149,6 +176,9 @@ public sealed class TokenService : ITokenService
         return token;
     }
 
+    /// <summary>
+    /// Persists a token with optimistic concurrency and translates stale writes into conflicts.
+    /// </summary>
     private async Task SaveAsync(TokenProject token, CancellationToken cancellationToken)
     {
         if (!await _repository.TryUpdateAsync(token, cancellationToken))
@@ -157,9 +187,15 @@ public sealed class TokenService : ITokenService
         }
     }
 
+    /// <summary>
+    /// Creates the standard conflict returned for an already-listed network contract.
+    /// </summary>
     private static ApiException ContractConflict() =>
         new(StatusCodes.Status409Conflict, "Contract already listed", "A token with this contract address already exists on the selected network.");
 
+    /// <summary>
+    /// Ensures all supplied project, media, and social URLs are absolute HTTPS URLs.
+    /// </summary>
     private static void ValidateUrls(string? logoUrl, string? bannerUrl, string? websiteUrl, IEnumerable<SocialLink> socialLinks)
     {
         IEnumerable<string?> urls = new[] { logoUrl, bannerUrl, websiteUrl }.Concat(socialLinks.Select(link => link.Url));
@@ -169,9 +205,15 @@ public sealed class TokenService : ITokenService
         }
     }
 
+    /// <summary>
+    /// Creates the standard not-found response without revealing hidden drafts.
+    /// </summary>
     private static ApiException NotFound(string tokenId) =>
         new(StatusCodes.Status404NotFound, "Token not found", $"Token '{tokenId}' was not found.");
 
+    /// <summary>
+    /// Maps the persistence model to the public API response model.
+    /// </summary>
     private static TokenResponse Map(TokenProject token) => new()
     {
         TokenId = token.TokenId,

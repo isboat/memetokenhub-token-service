@@ -19,12 +19,18 @@ public sealed class MediaUploadService : IMediaUploadService
     private readonly MediaStorageOptions _options;
     private readonly IClock _clock;
 
+    /// <summary>
+    /// Initializes the upload signer with validated storage settings and a clock.
+    /// </summary>
     public MediaUploadService(IOptions<MediaStorageOptions> options, IClock clock)
     {
         _options = options.Value;
         _clock = clock;
     }
 
+    /// <summary>
+    /// Validates an image upload request and creates signed upload and public asset URLs.
+    /// </summary>
     public MediaUploadResponse CreateUpload(MediaUploadRequest request, string creatorId)
     {
         if (!AllowedContentTypes.Contains(request.ContentType))
