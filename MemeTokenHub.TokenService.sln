@@ -1,0 +1,50 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5C6468A1-9231-4364-B801-3D3E3F06C2C5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemeTokenHub.TokenService.Api", "src\MemeTokenHub.TokenService.Api\MemeTokenHub.TokenService.Api.csproj", "{A00CF0EB-8C4A-4FBC-A1C9-A7EE41E37F56}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{DF02FC02-9CCD-42AB-9C16-301DF9EA33D7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemeTokenHub.TokenService.ContractTests", "tests\MemeTokenHub.TokenService.ContractTests\MemeTokenHub.TokenService.ContractTests.csproj", "{DAA8B4C5-451D-4270-BEDE-0C09433471D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemeTokenHub.TokenService.IntegrationTests", "tests\MemeTokenHub.TokenService.IntegrationTests\MemeTokenHub.TokenService.IntegrationTests.csproj", "{0ABBD939-23A4-4666-8674-85132375A2D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemeTokenHub.TokenService.UnitTests", "tests\MemeTokenHub.TokenService.UnitTests\MemeTokenHub.TokenService.UnitTests.csproj", "{CD34FC9F-DF4F-4974-AE2A-5D0ED06C8347}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A00CF0EB-8C4A-4FBC-A1C9-A7EE41E37F56}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A00CF0EB-8C4A-4FBC-A1C9-A7EE41E37F56}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A00CF0EB-8C4A-4FBC-A1C9-A7EE41E37F56}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A00CF0EB-8C4A-4FBC-A1C9-A7EE41E37F56}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DAA8B4C5-451D-4270-BEDE-0C09433471D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DAA8B4C5-451D-4270-BEDE-0C09433471D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DAA8B4C5-451D-4270-BEDE-0C09433471D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DAA8B4C5-451D-4270-BEDE-0C09433471D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0ABBD939-23A4-4666-8674-85132375A2D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0ABBD939-23A4-4666-8674-85132375A2D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0ABBD939-23A4-4666-8674-85132375A2D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0ABBD939-23A4-4666-8674-85132375A2D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD34FC9F-DF4F-4974-AE2A-5D0ED06C8347}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD34FC9F-DF4F-4974-AE2A-5D0ED06C8347}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD34FC9F-DF4F-4974-AE2A-5D0ED06C8347}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD34FC9F-DF4F-4974-AE2A-5D0ED06C8347}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A00CF0EB-8C4A-4FBC-A1C9-A7EE41E37F56} = {5C6468A1-9231-4364-B801-3D3E3F06C2C5}
+		{DAA8B4C5-451D-4270-BEDE-0C09433471D4} = {DF02FC02-9CCD-42AB-9C16-301DF9EA33D7}
+		{0ABBD939-23A4-4666-8674-85132375A2D0} = {DF02FC02-9CCD-42AB-9C16-301DF9EA33D7}
+		{CD34FC9F-DF4F-4974-AE2A-5D0ED06C8347} = {DF02FC02-9CCD-42AB-9C16-301DF9EA33D7}
+	EndGlobalSection
+EndGlobal

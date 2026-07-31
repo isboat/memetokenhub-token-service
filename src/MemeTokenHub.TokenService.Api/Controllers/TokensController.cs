@@ -1,0 +1,152 @@
+using System.Security.Claims;
+using MemeTokenHub.TokenService.Api.Application.Abstractions;
+using MemeTokenHub.TokenService.Api.Application.Models;
+using MemeTokenHub.TokenService.Api.Domain;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace MemeTokenHub.TokenService.Api.Controllers;
+
+[ApiController]
+[Route("api/tokens")]
+[Produces("application/json")]
+public sealed class TokensController : ControllerBase
+{
+    private readonly ITokenService _tokenService;
+    private readonly IMediaUploadService _mediaUploadService;
+
+    /// <summary>
+    /// Initializes the token API controller with its application services.
+    /// </summary>
+    public TokensController(ITokenService tokenService, IMediaUploadService mediaUploadService)
+    {
+        _tokenService = tokenService;
+        _mediaUploadService = mediaUploadService;
+    }
+
+    /// <summary>
+    /// Searches published tokens using the supplied filters, sort order, and pagination window.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType<PagedResult<TokenResponse>>(StatusCodes.Status200OK)]
+    public Task<PagedResult<TokenResponse>> SearchAsync(
+        [FromQuery] string? search,
+        [FromQuery] string? network,
+        [FromQuery] string? category,
+        [FromQuery] string? creatorId,
+        [FromQuery] TokenStatus? status,
+        [FromQuery] string sortBy = "createdAt",
+        [FromQuery] int limit = 20,
+        [FromQuery] int offset = 0,
+        CancellationToken cancellationToken = default) =>
+        _tokenService.SearchAsync(new TokenQuery
+        {
+            Search = search,
+            Network = network,
+            Category = category,
+            CreatorId = creatorId,
+            Status = status,
+            SortBy = sortBy,
+            Limit = limit,
+            Offset = offset,
+        }, cancellationToken);
+
+    /// <summary>
+    /// Creates a short-lived signed upload URL for an authenticated creator's logo or banner.
+    /// </summary>
+    [Authorize(Policy = "ProjectsWrite")]
+    [HttpPost("media/upload-url")]
+    [ProducesResponseType<MediaUploadResponse>(StatusCodes.Status200OK)]
+    public ActionResult<MediaUploadResponse> CreateMediaUpload(MediaUploadRequest request) =>
+        Ok(_mediaUploadService.CreateUpload(request, GetRequiredUserId()));
+
+    /// <summary>
+    /// Gets a published token, or an unpublished token when requested by its owner.
+    /// </summary>
+    [HttpGet("{tokenId}")]
+    [ProducesResponseType<TokenResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public Task<TokenResponse> GetAsync(string tokenId, CancellationToken cancellationToken) =>
+        _tokenService.GetAsync(tokenId, User.FindFirstValue(ClaimTypes.NameIdentifier), cancellationToken);
+
+    /// <summary>
+    /// Creates a private token draft for the authenticated creator.
+    /// </summary>
+    [Authorize(Policy = "ProjectsWrite")]
+    [HttpPost]
+    [ProducesResponseType<TokenResponse>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<TokenResponse>> CreateAsync(CreateTokenRequest request, CancellationToken cancellationToken)
+    {
+        TokenResponse token = await _tokenService.CreateAsync(request, GetRequiredUserId(), cancellationToken);
+        return CreatedAtAction(nameof(GetAsync), new { tokenId = token.TokenId }, token);
+    }
+
+    /// <summary>
+    /// Updates token metadata when the authenticated user is the owner or a moderator.
+    /// </summary>
+    [Authorize(Policy = "ProjectsWrite")]
+    [HttpPut("{tokenId}")]
+    [ProducesResponseType<TokenResponse>(StatusCodes.Status200OK)]
+    public Task<TokenResponse> UpdateAsync(string tokenId, UpdateTokenRequest request, CancellationToken cancellationToken) =>
+        _tokenService.UpdateAsync(tokenId, request, GetRequiredUserId(), User.IsInRole("Moderator"), cancellationToken);
+
+    /// <summary>
+    /// Publishes a token draft while preserving the first publication timestamp.
+    /// </summary>
+    [Authorize(Policy = "ProjectsWrite")]
+    [HttpPost("{tokenId}/publish")]
+    [ProducesResponseType<TokenResponse>(StatusCodes.Status200OK)]
+    public Task<TokenResponse> PublishAsync(string tokenId, CancellationToken cancellationToken) =>
+        _tokenService.PublishAsync(tokenId, GetRequiredUserId(), User.IsInRole("Moderator"), cancellationToken);
+
+    /// <summary>
+    /// Gets a named discovery feed such as trending, unclaimed, featured, or new.
+    /// </summary>
+    [HttpGet("feeds/{type}")]
+    [ProducesResponseType<PagedResult<TokenResponse>>(StatusCodes.Status200OK)]
+    public Task<PagedResult<TokenResponse>> GetFeedAsync(string type, [FromQuery] int limit = 20, CancellationToken cancellationToken = default)
+    {
+        TokenStatus? status = type.ToLowerInvariant() switch
+        {
+            "unclaimed" => TokenStatus.Unclaimed,
+            "featured" => TokenStatus.Featured,
+            _ => null,
+        };
+        string sortBy = type.Equals("trending", StringComparison.OrdinalIgnoreCase) ? "popularity" : "createdAt";
+        return _tokenService.SearchAsync(new TokenQuery { Status = status, SortBy = sortBy, Limit = limit }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets published tokens belonging to a specific creator.
+    /// </summary>
+    [HttpGet("by-creator/{creatorId}")]
+    public Task<PagedResult<TokenResponse>> GetByCreatorAsync(string creatorId, [FromQuery] int limit = 20, [FromQuery] int offset = 0, CancellationToken cancellationToken = default) =>
+        _tokenService.SearchAsync(new TokenQuery { CreatorId = creatorId, Limit = limit, Offset = offset }, cancellationToken);
+
+    /// <summary>
+    /// Gets supported token networks and their published token counts.
+    /// </summary>
+    [HttpGet("networks")]
+    public Task<IReadOnlyCollection<NetworkResponse>> GetNetworksAsync(CancellationToken cancellationToken) =>
+        _tokenService.GetNetworksAsync(cancellationToken);
+
+    /// <summary>
+    /// Gets the current community sentiment projection for a published token.
+    /// </summary>
+    [HttpGet("{tokenId}/sentiment")]
+    public Task<SentimentResponse> GetSentimentAsync(string tokenId, CancellationToken cancellationToken) =>
+        _tokenService.GetSentimentAsync(tokenId, cancellationToken);
+
+    /// <summary>
+    /// Gets the public analytics projection for a published token.
+    /// </summary>
+    [HttpGet("analytics/{tokenId}")]
+    public Task<SentimentResponse> GetAnalyticsAsync(string tokenId, CancellationToken cancellationToken) =>
+        _tokenService.GetSentimentAsync(tokenId, cancellationToken);
+
+    /// <summary>
+    /// Reads the authenticated subject identifier required by write operations.
+    /// </summary>
+    private string GetRequiredUserId() =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("The authenticated user has no subject identifier.");
+}
