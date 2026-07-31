@@ -66,6 +66,32 @@ public sealed class TokenServiceTests
         return Task.CompletedTask;
     }
 
+    [Test]
+    public void CreateAsyncReturnsConflictWhenInsertLosesUniqueContractRace()
+    {
+        var repository = new FakeTokenRepository { ForceCreateConflict = true };
+        var service = new ApplicationTokenService(repository, new FixedClock { UtcNow = Now });
+
+        ApiException? exception = Assert.ThrowsAsync<ApiException>(() => service.CreateAsync(CreateRequest(), "creator-1", CancellationToken.None));
+
+        Assert.That(exception!.StatusCode, Is.EqualTo(409));
+    }
+
+    [Test]
+    public async Task PublishAsyncReturnsConflictWhenTokenWasConcurrentlyChanged()
+    {
+        var repository = new FakeTokenRepository();
+        var service = new ApplicationTokenService(repository, new FixedClock { UtcNow = Now });
+        TokenResponse draft = await service.CreateAsync(CreateRequest(), "creator-1", CancellationToken.None);
+        var conflictingRepository = new FakeTokenRepository { ForceUpdateConflict = true };
+        conflictingRepository.Tokens.Add(repository.Tokens.Single());
+        var conflictingService = new ApplicationTokenService(conflictingRepository, new FixedClock { UtcNow = Now });
+
+        ApiException? exception = Assert.ThrowsAsync<ApiException>(() => conflictingService.PublishAsync(draft.TokenId, "creator-1", false, CancellationToken.None));
+
+        Assert.That(exception!.StatusCode, Is.EqualTo(409));
+    }
+
     private static CreateTokenRequest CreateRequest(string? logoUrl = "https://cdn.example/logo.png") => new()
     {
         Name = "Readable Meme",

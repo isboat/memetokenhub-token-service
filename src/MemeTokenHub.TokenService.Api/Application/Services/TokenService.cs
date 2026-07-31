@@ -44,7 +44,11 @@ public sealed class TokenService : ITokenService
             UpdatedAt = now,
         };
 
-        await _repository.CreateAsync(token, cancellationToken);
+        if (!await _repository.TryCreateAsync(token, cancellationToken))
+        {
+            throw ContractConflict();
+        }
+
         return Map(token);
     }
 
@@ -88,7 +92,7 @@ public sealed class TokenService : ITokenService
         token.WebsiteUrl = request.WebsiteUrl;
         token.SocialLinks = request.SocialLinks;
         token.UpdatedAt = _clock.UtcNow;
-        await _repository.UpdateAsync(token, cancellationToken);
+        await SaveAsync(token, cancellationToken);
         return Map(token);
     }
 
@@ -104,7 +108,7 @@ public sealed class TokenService : ITokenService
         token.LaunchStatus = LaunchStatus.Published;
         token.PublishedAt ??= now;
         token.UpdatedAt = now;
-        await _repository.UpdateAsync(token, cancellationToken);
+        await SaveAsync(token, cancellationToken);
         return Map(token);
     }
 
@@ -144,6 +148,17 @@ public sealed class TokenService : ITokenService
 
         return token;
     }
+
+    private async Task SaveAsync(TokenProject token, CancellationToken cancellationToken)
+    {
+        if (!await _repository.TryUpdateAsync(token, cancellationToken))
+        {
+            throw new ApiException(StatusCodes.Status409Conflict, "Token changed", "The token was changed by another request. Reload it and retry.");
+        }
+    }
+
+    private static ApiException ContractConflict() =>
+        new(StatusCodes.Status409Conflict, "Contract already listed", "A token with this contract address already exists on the selected network.");
 
     private static void ValidateUrls(string? logoUrl, string? bannerUrl, string? websiteUrl, IEnumerable<SocialLink> socialLinks)
     {

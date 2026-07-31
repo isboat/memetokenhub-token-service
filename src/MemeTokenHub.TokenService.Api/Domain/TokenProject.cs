@@ -50,4 +50,6 @@ public sealed class TokenProject
     public DateTime? PublishedAt { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public long Version { get; set; } = 1;
 }

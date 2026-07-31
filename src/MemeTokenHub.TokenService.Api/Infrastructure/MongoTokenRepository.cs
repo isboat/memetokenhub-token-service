@@ -17,8 +17,18 @@ public sealed class MongoTokenRepository : ITokenRepository
         _tokens = database.GetCollection<TokenProject>("Tokens");
     }
 
-    public Task CreateAsync(TokenProject token, CancellationToken cancellationToken) =>
-        _tokens.InsertOneAsync(token, cancellationToken: cancellationToken);
+    public async Task<bool> TryCreateAsync(TokenProject token, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _tokens.InsertOneAsync(token, cancellationToken: cancellationToken);
+            return true;
+        }
+        catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return false;
+        }
+    }
 
     public async Task<TokenProject?> GetByIdAsync(string tokenId, bool includeDrafts, CancellationToken cancellationToken)
     {
@@ -79,8 +89,21 @@ public sealed class MongoTokenRepository : ITokenRepository
         return new PagedResult<TokenProject> { Items = items, Limit = query.Limit, Offset = query.Offset, Total = total };
     }
 
-    public Task UpdateAsync(TokenProject token, CancellationToken cancellationToken) =>
-        _tokens.ReplaceOneAsync(existing => existing.TokenId == token.TokenId, token, cancellationToken: cancellationToken);
+    public async Task<bool> TryUpdateAsync(TokenProject token, CancellationToken cancellationToken)
+    {
+        long expectedVersion = token.Version;
+        token.Version++;
+        FilterDefinition<TokenProject> filter = Builders<TokenProject>.Filter.Eq(existing => existing.TokenId, token.TokenId)
+            & Builders<TokenProject>.Filter.Eq(existing => existing.Version, expectedVersion);
+        ReplaceOneResult result = await _tokens.ReplaceOneAsync(filter, token, cancellationToken: cancellationToken);
+        if (result.ModifiedCount == 1)
+        {
+            return true;
+        }
+
+        token.Version = expectedVersion;
+        return false;
+    }
 
     public Task<bool> ContractExistsAsync(string network, string contractAddress, CancellationToken cancellationToken) =>
         _tokens.Find(token => token.Network == network && token.ContractAddress == contractAddress).AnyAsync(cancellationToken);

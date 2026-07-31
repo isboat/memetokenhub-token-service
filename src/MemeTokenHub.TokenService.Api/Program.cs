@@ -5,6 +5,7 @@ using MemeTokenHub.TokenService.Api.Configuration;
 using MemeTokenHub.TokenService.Api.Infrastructure;
 using MemeTokenHub.TokenService.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 
@@ -12,9 +13,18 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
-builder.Services.AddHealthChecks();
+IHealthChecksBuilder healthChecks = builder.Services.AddHealthChecks();
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    healthChecks.AddCheck<MongoDbHealthCheck>("mongodb", tags: ["ready"]);
+}
 builder.Services.AddTokenServiceSwagger();
-builder.Services.Configure<MediaStorageOptions>(builder.Configuration.GetSection(MediaStorageOptions.SectionName));
+builder.Services.AddOptions<MediaStorageOptions>()
+    .Bind(builder.Configuration.GetSection(MediaStorageOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.UploadBaseUrl), "Media upload base URL is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AssetBaseUrl), "Media asset base URL is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.SigningKey), "Media signing key is required.")
+    .ValidateOnStart();
 builder.Services.AddOptions<MongoDbOptions>()
     .Bind(builder.Configuration.GetSection(MongoDbOptions.SectionName))
     .Validate(options => !string.IsNullOrWhiteSpace(options.ConnectionString), "MongoDB connection string is required.")
@@ -67,8 +77,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.Run();
 
 public partial class Program;
