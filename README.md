@@ -4,7 +4,7 @@ ASP.NET Core and MongoDB microservice that owns token project metadata, publicat
 
 ## Local development
 
-1. Install the .NET 8 SDK and MongoDB.
+1. Install the .NET 10 SDK and MongoDB.
 2. Set `MongoDb__ConnectionString`, `Jwt__Key`, `Jwt__Issuer`, and `Jwt__Audience`.
 3. Run `dotnet restore`, `dotnet build --no-restore`, then `dotnet run --project src/MemeTokenHub.TokenService.Api`.
 4. Open `/swagger` for the interactive API documentation.

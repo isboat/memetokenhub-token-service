@@ -19,8 +19,8 @@ internal sealed class FakeTokenRepository : ITokenRepository
 
     public Task<PagedResult<TokenProject>> SearchAsync(TokenQuery query, bool includeDrafts, CancellationToken cancellationToken)
     {
-        IReadOnlyCollection<TokenProject> items = Tokens.Where(token => includeDrafts || token.LaunchStatus == LaunchStatus.Published).ToArray();
-        return Task.FromResult(new PagedResult<TokenProject> { Items = items, Limit = query.Limit, Offset = query.Offset, Total = items.Count });
+        TokenProject[] items = Tokens.Where(token => includeDrafts || token.LaunchStatus == LaunchStatus.Published).ToArray();
+        return Task.FromResult(new PagedResult<TokenProject> { Items = items, Limit = query.Limit, Offset = query.Offset, Total = items.Length });
     }
 
     public Task UpdateAsync(TokenProject token, CancellationToken cancellationToken) => Task.CompletedTask;

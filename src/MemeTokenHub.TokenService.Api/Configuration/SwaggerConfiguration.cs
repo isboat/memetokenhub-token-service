@@ -1,4 +1,4 @@
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 
 namespace MemeTokenHub.TokenService.Api.Configuration;
 
@@ -24,12 +24,9 @@ public static class SwaggerConfiguration
                 In = ParameterLocation.Header,
                 Description = "Enter a MemeTokenHub backend JWT.",
             });
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
             {
-                [new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" },
-                }] = Array.Empty<string>(),
+                [new OpenApiSecuritySchemeReference("Bearer", document, null)] = [],
             });
         });
         return services;
