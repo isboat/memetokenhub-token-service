@@ -29,6 +29,8 @@ public sealed class TokenProject
 
     public string? BannerUrl { get; set; }
 
+    public string? UpcomingProfileId { get; init; }
+
     public string? WebsiteUrl { get; set; }
 
     public IReadOnlyCollection<SocialLink> SocialLinks { get; set; } = [];

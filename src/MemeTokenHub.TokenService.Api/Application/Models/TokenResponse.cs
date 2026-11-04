@@ -24,6 +24,8 @@ public sealed class TokenResponse
 
     public string? BannerUrl { get; init; }
 
+    public string? UpcomingProfileId { get; init; }
+
     public string? WebsiteUrl { get; init; }
 
     public required IReadOnlyCollection<SocialLink> SocialLinks { get; init; }

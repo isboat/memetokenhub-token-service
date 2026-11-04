@@ -235,5 +235,6 @@ public sealed class TokenService : ITokenService
         CreatedAt = token.CreatedAt,
         UpdatedAt = token.UpdatedAt,
         PublishedAt = token.PublishedAt,
+        UpcomingProfileId = token.UpcomingProfileId,
     };
 }

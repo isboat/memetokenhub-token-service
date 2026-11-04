@@ -1,4 +1,5 @@
 using System.Text;
+using MemeTokenHub.TokenService.Api.Hub;
 using MemeTokenHub.TokenService.Api.Application.Abstractions;
 using MemeTokenHub.TokenService.Api.Application.Services;
 using MemeTokenHub.TokenService.Api.Configuration;
@@ -58,6 +59,9 @@ builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(builder.Configu
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<ITokenRepository, MongoTokenRepository>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IHubRepository, MongoHubRepository>();
+builder.Services.AddHttpClient("HubSources", client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHostedService<SocialActivityCollector>();
 builder.Services.AddScoped<IMediaUploadService, MediaUploadService>();
 if (!builder.Environment.IsEnvironment("Testing"))
 {
