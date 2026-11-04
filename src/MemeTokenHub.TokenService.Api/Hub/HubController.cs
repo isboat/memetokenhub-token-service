@@ -58,8 +58,13 @@ public sealed class HubController(IHubRepository repository, ITokenRepository to
             return BadRequest(new { detail = error });
         var entry = new HubEntry { Kind = kind, OwnerId = UserId, Payload = request.Data.GetRawText(), Stage = kind == "applications" ? "Pending review" : kind == "events" ? "Published" : "Upcoming" };
         // Contracts enter the public record only through the explicit lifecycle transition.
-        if (kind == "upcoming" && request.Data.Deserialize<UpcomingProfileData>(HubValidation.JsonOptions)!.ContractAddress.Length > 0)
-            return BadRequest(new { detail = "Publish the upcoming profile before adding its contract." });
+        if (kind == "upcoming")
+        {
+            UpcomingProfileData data = request.Data.Deserialize<UpcomingProfileData>(HubValidation.JsonOptions)!.NormalizeIdentity();
+            if (data.ContractAddress.Length > 0)
+                return BadRequest(new { detail = "Publish the upcoming profile before adding its contract." });
+            entry.Payload = JsonSerializer.Serialize(data, HubValidation.JsonOptions);
+        }
         entry.History.Add(new(entry.Version, entry.UpdatedAt, entry.Stage, entry.Payload));
         await repository.CreateAsync(entry, cancellationToken);
         return Created($"/api/hub/{kind}/{entry.Id}", View(entry));
@@ -83,14 +88,16 @@ public sealed class HubController(IHubRepository repository, ITokenRepository to
             return BadRequest(new { detail = error });
         if (entry.TokenId is not null || entry.Stage == "Trading live")
             return Conflict(new { detail = "The launch is permanent. Update its live token profile instead." });
+        string payload = request.Data.GetRawText();
         if (kind == "upcoming")
         {
-            UpcomingProfileData oldData = JsonSerializer.Deserialize<UpcomingProfileData>(entry.Payload, HubValidation.JsonOptions)!;
-            UpcomingProfileData newData = request.Data.Deserialize<UpcomingProfileData>(HubValidation.JsonOptions)!;
+            UpcomingProfileData oldData = JsonSerializer.Deserialize<UpcomingProfileData>(entry.Payload, HubValidation.JsonOptions)!.NormalizeIdentity();
+            UpcomingProfileData newData = request.Data.Deserialize<UpcomingProfileData>(HubValidation.JsonOptions)!.NormalizeIdentity();
             if (oldData.Network != newData.Network || oldData.ContractAddress != newData.ContractAddress)
                 return BadRequest(new { detail = "Network and contract identity cannot be edited here. Use the contract publication action." });
+            payload = JsonSerializer.Serialize(newData, HubValidation.JsonOptions);
         }
-        entry.Payload = request.Data.GetRawText();
+        entry.Payload = payload;
         return await Save(entry, request.Version, cancellationToken);
     }
     [Authorize]
@@ -110,8 +117,8 @@ public sealed class HubController(IHubRepository repository, ITokenRepository to
         string? error = HubValidation.Validate("upcoming", request.Data);
         if (error is not null)
             return BadRequest(new { detail = error });
-        UpcomingProfileData data = request.Data.Deserialize<UpcomingProfileData>(HubValidation.JsonOptions)!;
-        UpcomingProfileData previous = JsonSerializer.Deserialize<UpcomingProfileData>(entry.Payload, HubValidation.JsonOptions)!;
+        UpcomingProfileData data = request.Data.Deserialize<UpcomingProfileData>(HubValidation.JsonOptions)!.NormalizeIdentity();
+        UpcomingProfileData previous = JsonSerializer.Deserialize<UpcomingProfileData>(entry.Payload, HubValidation.JsonOptions)!.NormalizeIdentity();
         if (previous.Network != data.Network || (entry.Stage != "Upcoming" && previous.ContractAddress != data.ContractAddress))
             return BadRequest(new { detail = "Published network and contract identity are permanent." });
         // Lifecycle requests may change only contract/trading evidence, never the pinned story.
@@ -154,7 +161,7 @@ public sealed class HubController(IHubRepository repository, ITokenRepository to
             if (!created)
             {
                 TokenProject? existing = await tokens.GetByIdAsync(tokenId, true, cancellationToken);
-                if (existing?.CreatorId != entry.OwnerId || existing.ContractAddress != data.ContractAddress)
+                if (existing?.CreatorId != entry.OwnerId || existing.Network.Trim() != data.Network || existing.ContractAddress.Trim() != data.ContractAddress)
                     return Conflict(new { detail = "This network and contract already have a token record." });
             }
             entry.TokenId = tokenId;

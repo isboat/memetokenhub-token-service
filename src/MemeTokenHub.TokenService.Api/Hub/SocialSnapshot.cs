@@ -6,4 +6,5 @@ public sealed class SocialSnapshot
     [BsonId] public required string Id { get; init; }
     public string[] Links { get; init; } = [];
     public long Version { get; init; }
+    [BsonIgnoreIfNull] public SocialChange? PendingChange { get; init; }
 }

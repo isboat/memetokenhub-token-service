@@ -8,11 +8,11 @@ namespace MemeTokenHub.TokenService.UnitTests;
 
 public sealed class HubTests
 {
-    private static JsonElement Data(string contract = "", string trading = "") => JsonSerializer.SerializeToElement(new
+    private static JsonElement Data(string contract = "", string trading = "", string network = "Solana") => JsonSerializer.SerializeToElement(new
     {
         name = "Orbit",
         symbol = "ORBIT",
-        network = "Solana",
+        network,
         story = "The project story",
         distribution = "Community allocation",
         disclosures = "No affiliations",
@@ -56,6 +56,87 @@ public sealed class HubTests
         });
         Assert.That(await controller.Advance(entry.Id, new(Data("contract-1"), saved.Version), CancellationToken.None), Is.TypeOf<OkObjectResult>());
         Assert.That(tokens.Tokens, Has.Count.EqualTo(1));
+    }
+    [Test]
+    public async Task WhitespaceIsNormalizedBeforePinningAndTokenCreation()
+    {
+        var repository = new FakeHubRepository();
+        var tokens = new FakeTokenRepository();
+        HubController controller = Controller(repository, tokens);
+        Assert.That(await controller.Create("upcoming", new(Data(network: " Solana ")), CancellationToken.None), Is.TypeOf<CreatedResult>());
+        HubEntry entry = (await repository.ListAsync("upcoming", null, CancellationToken.None)).Single();
+        Assert.That(JsonSerializer.Deserialize<UpcomingProfileData>(entry.Payload, HubValidation.JsonOptions)!.Network, Is.EqualTo("Solana"));
+        Assert.That(await controller.Update("upcoming", entry.Id, new(Data(network: "  Solana  "), 1), CancellationToken.None), Is.TypeOf<OkObjectResult>());
+        foreach (long version in new long[] { 2, 3, 4 })
+            Assert.That(await controller.Advance(entry.Id, new(Data(" contract-1 ", "https://example.com/trade", " Solana "), version), CancellationToken.None), Is.TypeOf<OkObjectResult>());
+        HubEntry saved = (await repository.GetAsync(entry.Id, CancellationToken.None))!;
+        UpcomingProfileData published = JsonSerializer.Deserialize<UpcomingProfileData>(saved.Payload, HubValidation.JsonOptions)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(tokens.Tokens.Single().Network, Is.EqualTo("Solana"));
+            Assert.That(tokens.Tokens.Single().ContractAddress, Is.EqualTo("contract-1"));
+            Assert.That(published.Network, Is.EqualTo("Solana"));
+            Assert.That(published.ContractAddress, Is.EqualTo("contract-1"));
+        });
+    }
+    [Test]
+    public async Task PreviouslyPinnedWhitespaceCannotBypassAnExistingContract()
+    {
+        var repository = new FakeHubRepository();
+        var tokens = new FakeTokenRepository();
+        HubEntry entry = await Create(repository, tokens);
+        HubController controller = Controller(repository, tokens);
+        await controller.Advance(entry.Id, new(Data("contract-1", "https://example.com/trade"), 1), CancellationToken.None);
+        await controller.Advance(entry.Id, new(Data("contract-1", "https://example.com/trade"), 2), CancellationToken.None);
+        // Simulate a profile pinned by the earlier, unnormalized implementation.
+        HubEntry legacy = (await repository.GetAsync(entry.Id, CancellationToken.None))!;
+        legacy.Payload = Data(" contract-1 ", "https://example.com/trade", " Solana ").GetRawText();
+        await repository.ReplaceAsync(legacy, legacy.Version, CancellationToken.None);
+        var existing = new TokenProject
+        {
+            TokenId = "existing-token",
+            Name = "Existing",
+            Symbol = "EXIST",
+            Description = "Existing project",
+            Network = "Solana",
+            ContractAddress = "contract-1",
+            Category = "Meme",
+            CreatorId = "another-owner",
+        };
+        await tokens.TryCreateAsync(existing, CancellationToken.None);
+        IActionResult result = await controller.Advance(entry.Id, new(Data("contract-1", "https://example.com/trade"), 3), CancellationToken.None);
+        Assert.That(result, Is.TypeOf<ConflictObjectResult>());
+        Assert.That(tokens.Tokens, Has.Count.EqualTo(1));
+        Assert.That((await repository.GetAsync(entry.Id, CancellationToken.None))!.Stage, Is.EqualTo("Trading live"));
+    }
+    [TestCase(" Solana ", " contract-1 ", true)]
+    [TestCase("Other network", "contract-1", false)]
+    public async Task ConversionRetryComparesNormalizedNetworkAndContract(string network, string contract, bool matches)
+    {
+        var repository = new FakeHubRepository();
+        var tokens = new FakeTokenRepository();
+        HubEntry entry = await Create(repository, tokens);
+        HubController controller = Controller(repository, tokens);
+        await controller.Advance(entry.Id, new(Data("contract-1", "https://example.com/trade"), 1), CancellationToken.None);
+        await controller.Advance(entry.Id, new(Data("contract-1", "https://example.com/trade"), 2), CancellationToken.None);
+        // The canonical insert succeeded, but the preceding process did not save the Hub link.
+        await tokens.TryCreateAsync(new TokenProject
+        {
+            TokenId = $"launch-{entry.Id}",
+            Name = "Orbit",
+            Symbol = "ORBIT",
+            Description = "Existing canonical record",
+            Network = network,
+            ContractAddress = contract,
+            Category = "Meme",
+            CreatorId = "owner",
+        }, CancellationToken.None);
+        // Force the insert to conflict on the deterministic token ID, as MongoDB would.
+        var conflictingTokens = new FakeTokenRepository { ForceCreateConflict = true };
+        conflictingTokens.Tokens.AddRange(tokens.Tokens);
+        IActionResult result = await Controller(repository, conflictingTokens).Advance(entry.Id, new(Data("contract-1", "https://example.com/trade"), 3), CancellationToken.None);
+        Assert.That(result, matches ? Is.TypeOf<OkObjectResult>() : Is.TypeOf<ConflictObjectResult>());
+        Assert.That(conflictingTokens.Tokens, Has.Count.EqualTo(1));
     }
     [Test]
     public async Task AnotherCreatorCannotEditOrAdvanceAProfile()

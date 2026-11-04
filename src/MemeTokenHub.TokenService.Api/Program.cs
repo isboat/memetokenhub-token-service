@@ -1,8 +1,8 @@
 using System.Text;
-using MemeTokenHub.TokenService.Api.Hub;
 using MemeTokenHub.TokenService.Api.Application.Abstractions;
 using MemeTokenHub.TokenService.Api.Application.Services;
 using MemeTokenHub.TokenService.Api.Configuration;
+using MemeTokenHub.TokenService.Api.Hub;
 using MemeTokenHub.TokenService.Api.Infrastructure;
 using MemeTokenHub.TokenService.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

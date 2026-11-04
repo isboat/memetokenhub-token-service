@@ -18,4 +18,6 @@ public sealed record UpcomingProfileData
     [StringLength(200)] public string ContractAddress { get; init; } = "";
     [StringLength(1000)] public string TradingUrl { get; init; } = "";
     public bool Sponsored { get; init; }
+
+    public UpcomingProfileData NormalizeIdentity() => this with { Network = Network.Trim(), ContractAddress = ContractAddress.Trim() };
 }
